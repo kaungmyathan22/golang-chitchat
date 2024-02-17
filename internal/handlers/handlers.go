@@ -127,6 +127,7 @@ func ListenForWs(conn *WebSocketConnection) {
 	for {
 		err := conn.ReadJSON(&payload)
 		if err != nil {
+			fmt.Println(err)
 			// do nothing
 		} else {
 			payload.Conn = *conn
