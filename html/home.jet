@@ -70,6 +70,14 @@
             let userField = document.getElementById("username");
             let messageField = document.getElementById("message");
 
+            window.onbeforeunload = function () {
+                console.log("Leaving");
+                let jsonData = {};
+                jsonData["action"] = "left";
+                socket.send(JSON.stringify(jsonData))
+            }
+
+
             document.addEventListener("DOMContentLoaded", function () {
                 socket = new WebSocket("ws://localhost:8080/ws");
                 socket.onopen = () => {
