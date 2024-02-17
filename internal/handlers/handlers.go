@@ -1,12 +1,16 @@
 package handlers
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"sort"
 
 	"github.com/CloudyKit/jet/v6"
 	"github.com/gorilla/websocket"
 )
+
+var wsChan = make(chan WsPayload)
 
 var clients = make(map[WebSocketConnection]string)
 
@@ -60,11 +64,63 @@ func WsEndpoint(w http.ResponseWriter, r *http.Request) {
 	conn := WebSocketConnection{Conn: ws}
 	clients[conn] = ""
 
-	err = ws.WriteJSON(response)
+	// err = ws.WriteJSON(response)
 	if err != nil {
 		log.Println(err)
 	}
+	go ListenForWs(&conn)
+}
 
+func ListenToWsChannel() {
+	var response WsJsonResponse
+	for {
+		e := <-wsChan
+		switch e.Action {
+		case "username":
+			// get a list of all users and send it back via broadcast
+			fmt.Println(e.Conn)
+			clients[e.Conn] = e.Username
+			users := getUserList()
+			response.Action = "list_users"
+			response.ConnectedUsers = users
+			broadcastToAll(response)
+		}
+		response.Action = "Got here"
+		response.Message = fmt.Sprintf("Some message , and action was %s", e.Action)
+		broadcastToAll(response)
+	}
+}
+
+func broadcastToAll(response WsJsonResponse) {
+	for client := range clients {
+		err := client.WriteJSON(response)
+		if err != nil {
+			// the user probably left the page, or their connection dropped
+			log.Println("websocket err")
+			_ = client.Close()
+			delete(clients, client)
+		}
+	}
+}
+
+func ListenForWs(conn *WebSocketConnection) {
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("Error", fmt.Sprintf("%v", r))
+		}
+	}()
+
+	var payload WsPayload
+
+	for {
+		err := conn.ReadJSON(&payload)
+		if err != nil {
+			// do nothing
+		} else {
+			payload.Conn = *conn
+			wsChan <- payload
+		}
+	}
 }
 
 func renderPage(w http.ResponseWriter, tmpl string, data jet.VarMap) error {
@@ -81,4 +137,15 @@ func renderPage(w http.ResponseWriter, tmpl string, data jet.VarMap) error {
 	}
 
 	return nil
+}
+
+func getUserList() []string {
+	var userList []string
+	for _, x := range clients {
+		if x != "" {
+			userList = append(userList, x)
+		}
+	}
+	sort.Strings(userList)
+	return userList
 }
