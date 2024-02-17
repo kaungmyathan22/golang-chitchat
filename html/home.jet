@@ -71,6 +71,17 @@
                 socket.onopen = () => {
                     console.log("successfully connected");
                 }
+                socket.onclose = () => {
+                    console.log("connection closed");
+                    statusDiv.innerHTML = offline;
+                }
+
+                socket.onerror = error => {
+                    console.log("there was an error");
+                    statusDiv.innerHTML = offline;
+                }
+
+                socket.onmessage = msg => {}
             });
 
         </script>
